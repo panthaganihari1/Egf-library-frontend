@@ -49,7 +49,7 @@ export default function Login() {
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             EGF Book Library
           </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: 15 }}>Ammerpet Branch — Incharge Login</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: 15 }}>Ammerpet — Literature Incharge Login</p>
         </div>
 
         {/* Card */}
@@ -93,7 +93,7 @@ export default function Login() {
           </form>
 
           <p style={{ textAlign:'center', marginTop:20, fontSize:12, color:'var(--text-muted)' }}>
-            Default: admin / egf@2024
+            Contact the administrator for assistance.
           </p>
         </div>
 

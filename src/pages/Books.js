@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { getBooks, searchBooks, createBook, updateBook, deleteBook } from '../api';
 import toast from 'react-hot-toast';
-import { Plus, Search, Edit2, Trash2, X } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, X, BookOpen, User, Tag, Globe, Hash, Building2, Calendar, FileText, Copy, CheckCircle } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const CATEGORIES = ['Bible Study', 'Devotional', 'Theology', 'Prayer', 'Prophecy', 'Christian Living', 'Youth', 'Children', 'Telugu', 'Hindi', 'Other'];
 const EMPTY = { title: '', author: '', category: '', publisher: '', isbn: '', totalCopies: 1, description: '', language: 'Telugu', publishedYear: '' };
 
+// ─── Hook: detect mobile ───────────────────────────────────────────────────────
 function useIsMobile() {
   const [mobile, setMobile] = useState(window.innerWidth < 640);
   useEffect(() => {
@@ -16,10 +18,151 @@ function useIsMobile() {
   return mobile;
 }
 
-// Mobile card for a single book
-function BookCard({ b, onEdit, onDelete }) {
+// ─── Role check helper ─────────────────────────────────────────────────────────
+// Reads role from localStorage (set during login). Adjust key/value to match your auth.
+function useIsIncharge() {
+  const { user } = useAuth();
+  return user?.role?.toLowerCase() === 'incharge';
+}
+
+// ─── Book Detail Modal ─────────────────────────────────────────────────────────
+function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
+  if (!book) return null;
+
+  const statusColor =
+    book.status === 'AVAILABLE' ? 'var(--emerald)' :
+    book.status === 'ISSUED'    ? 'var(--orange, #f97316)' :
+                                  'var(--rose)';
+
+  const DetailRow = ({ icon: Icon, label, value, valueColor }) =>
+    value ? (
+      <div style={{
+        display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 0',
+        borderBottom: '1px solid var(--border)'
+      }}>
+        <div style={{
+          width: 32, height: 32, borderRadius: 8, background: 'var(--surface)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+        }}>
+          <Icon size={15} color="var(--text-muted)" />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>{label}</div>
+          <div style={{ fontSize: 14, fontWeight: 500, color: valueColor || 'var(--text)', wordBreak: 'break-word' }}>{value}</div>
+        </div>
+      </div>
+    ) : null;
+
   return (
-    <div className="card" style={{ marginBottom: 12, padding: '14px 16px' }}>
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{
+        maxHeight: '92vh', overflowY: 'auto',
+        width: '100%', maxWidth: 500, margin: '0 auto',
+        padding: 0, borderRadius: 16
+      }}>
+        {/* Header banner */}
+        <div style={{
+          background: 'linear-gradient(135deg, var(--primary, #4f46e5) 0%, var(--primary-dark, #3730a3) 100%)',
+          padding: '24px 20px 20px',
+          borderRadius: '16px 16px 0 0',
+          position: 'relative'
+        }}>
+          <button
+            className="btn btn-outline"
+            style={{
+              position: 'absolute', top: 14, right: 14,
+              padding: '6px 10px', background: 'rgba(255,255,255,0.15)',
+              border: 'none', color: '#fff'
+            }}
+            onClick={onClose}
+          >
+            <X size={16} />
+          </button>
+
+          <div style={{
+            width: 52, height: 52, borderRadius: 12,
+            background: 'rgba(255,255,255,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            marginBottom: 12
+          }}>
+            <BookOpen size={26} color="#fff" />
+          </div>
+
+          <h3 style={{ color: '#fff', fontSize: 18, fontWeight: 700, marginBottom: 4, paddingRight: 40 }}>
+            {book.title}
+          </h3>
+          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, margin: 0 }}>{book.author}</p>
+
+          {/* Status pill */}
+          <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{
+              background: 'rgba(255,255,255,0.2)', color: '#fff',
+              padding: '3px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600
+            }}>
+              {book.category}
+            </span>
+            <span style={{
+              background: statusColor, color: '#fff',
+              padding: '3px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600
+            }}>
+              {book.status}
+            </span>
+          </div>
+        </div>
+
+        {/* Copies summary row */}
+        <div style={{
+          display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
+          background: 'var(--surface)', borderBottom: '1px solid var(--border)'
+        }}>
+          {[
+            { label: 'Total Copies', value: book.totalCopies, color: 'var(--text)' },
+            { label: 'Available', value: book.availableCopies, color: book.availableCopies > 0 ? 'var(--emerald)' : 'var(--rose)' },
+            { label: 'Issued', value: (book.totalCopies || 0) - (book.availableCopies || 0), color: 'var(--orange, #f97316)' },
+          ].map(({ label, value, color }) => (
+            <div key={label} style={{ textAlign: 'center', padding: '14px 8px' }}>
+              <div style={{ fontSize: 22, fontWeight: 700, color }}>{value ?? '—'}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Details */}
+        <div style={{ padding: '4px 20px 8px' }}>
+          <DetailRow icon={Globe}     label="Language"       value={book.language} />
+          <DetailRow icon={Building2} label="Publisher"      value={book.publisher} />
+          <DetailRow icon={Hash}      label="ISBN"           value={book.isbn} />
+          <DetailRow icon={Calendar}  label="Published Year" value={book.publishedYear?.toString()} />
+          <DetailRow icon={FileText}  label="Description"    value={book.description} />
+        </div>
+
+        {/* Footer actions */}
+        <div style={{
+          display: 'flex', gap: 10, padding: '12px 20px 20px',
+          justifyContent: isIncharge ? 'flex-end' : 'center'
+        }}>
+          <button className="btn btn-outline" onClick={onClose} style={{ flex: isIncharge ? 'unset' : 1 }}>
+            Close
+          </button>
+          {isIncharge && (
+            <button className="btn btn-primary" onClick={() => { onClose(); onEdit(book); }}>
+              <Edit2 size={14} /> Edit Book
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Mobile card ───────────────────────────────────────────────────────────────
+function BookCard({ b, onEdit, onDelete, onView, isIncharge }) {
+  return (
+    <div
+      className="card"
+      style={{ marginBottom: 12, padding: '14px 16px', cursor: 'pointer' }}
+      onClick={() => onView(b)}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</div>
@@ -30,28 +173,37 @@ function BookCard({ b, onEdit, onDelete }) {
             <span className={`badge ${b.status === 'AVAILABLE' ? 'badge-green' : b.status === 'ISSUED' ? 'badge-orange' : 'badge-red'}`}>{b.status}</span>
           </div>
         </div>
+
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
           <div style={{ textAlign: 'right', fontSize: 12, color: 'var(--text-muted)' }}>
             <div>Total: <strong style={{ color: 'var(--text)' }}>{b.totalCopies}</strong></div>
             <div>Avail: <strong style={{ color: b.availableCopies > 0 ? 'var(--emerald)' : 'var(--rose)' }}>{b.availableCopies}</strong></div>
           </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={() => onEdit(b)}><Edit2 size={14} /></button>
-            <button className="btn btn-danger" style={{ padding: '6px 10px' }} onClick={() => onDelete(b.id)}><Trash2 size={14} /></button>
-          </div>
+
+          {/* Incharge only: Edit + Delete */}
+          {isIncharge && (
+            <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
+              <button className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={() => onEdit(b)}><Edit2 size={14} /></button>
+              <button className="btn btn-danger"  style={{ padding: '6px 10px' }} onClick={() => onDelete(b.id)}><Trash2 size={14} /></button>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
+// ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function Books() {
-  const [books, setBooks] = useState([]);
-  const [search, setSearch] = useState('');
-  const [modal, setModal] = useState(false);
+  const [books, setBooks]     = useState([]);
+  const [search, setSearch]   = useState('');
+  const [modal, setModal]     = useState(false);      // add/edit modal
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState(EMPTY);
-  const isMobile = useIsMobile();
+  const [form, setForm]       = useState(EMPTY);
+  const [viewBook, setViewBook] = useState(null);     // detail view modal
+
+  const isMobile   = useIsMobile();
+  const isIncharge = useIsIncharge();
 
   const load = () => getBooks().then(r => setBooks(r.data)).catch(() => {});
   useEffect(() => { load(); }, []);
@@ -64,7 +216,7 @@ export default function Books() {
     return () => clearTimeout(t);
   }, [search]);
 
-  const openAdd = () => { setEditing(null); setForm(EMPTY); setModal(true); };
+  const openAdd  = () => { setEditing(null); setForm(EMPTY); setModal(true); };
   const openEdit = (b) => { setEditing(b); setForm({ ...b }); setModal(true); };
 
   const handleSave = async () => {
@@ -95,9 +247,12 @@ export default function Books() {
           <h2 className="page-title">📚 Books</h2>
           <p className="page-subtitle">{books.length} spiritual books in library</p>
         </div>
-        <button className="btn btn-primary" onClick={openAdd}>
-          <Plus size={16} /> Add Book
-        </button>
+        {/* Add Book button: Incharge only */}
+        {isIncharge && (
+          <button className="btn btn-primary" onClick={openAdd}>
+            <Plus size={16} /> Add Book
+          </button>
+        )}
       </div>
 
       <div style={{ marginBottom: 16 }}>
@@ -111,12 +266,20 @@ export default function Books() {
         </div>
       </div>
 
-      {/* Mobile: cards, Desktop: table */}
+      {/* Mobile: cards — Desktop: table */}
       {isMobile ? (
         <div>
           {books.length === 0
             ? <div className="card" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 32 }}>No books found</div>
-            : books.map(b => <BookCard key={b.id} b={b} onEdit={openEdit} onDelete={handleDelete} />)
+            : books.map(b => (
+                <BookCard
+                  key={b.id} b={b}
+                  onEdit={openEdit}
+                  onDelete={handleDelete}
+                  onView={setViewBook}
+                  isIncharge={isIncharge}
+                />
+              ))
           }
         </div>
       ) : (
@@ -125,13 +288,18 @@ export default function Books() {
             <table style={{ minWidth: 700 }}>
               <thead><tr>
                 <th>Title</th><th>Author</th><th>Category</th><th>Language</th>
-                <th>Copies</th><th>Available</th><th>Status</th><th>Actions</th>
+                <th>Copies</th><th>Available</th><th>Status</th>
+                {isIncharge && <th>Actions</th>}
               </tr></thead>
               <tbody>
                 {books.length === 0
-                  ? <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 32 }}>No books found</td></tr>
+                  ? <tr><td colSpan={isIncharge ? 8 : 7} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 32 }}>No books found</td></tr>
                   : books.map(b => (
-                    <tr key={b.id}>
+                    <tr
+                      key={b.id}
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => setViewBook(b)}
+                    >
                       <td><div style={{ fontWeight: 600 }}>{b.title}</div></td>
                       <td style={{ color: 'var(--text-muted)' }}>{b.author}</td>
                       <td><span className="badge badge-blue">{b.category}</span></td>
@@ -147,12 +315,16 @@ export default function Books() {
                           {b.status}
                         </span>
                       </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <button className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={() => openEdit(b)}><Edit2 size={14} /></button>
-                          <button className="btn btn-danger" style={{ padding: '6px 10px' }} onClick={() => handleDelete(b.id)}><Trash2 size={14} /></button>
-                        </div>
-                      </td>
+
+                      {/* Incharge only: action buttons */}
+                      {isIncharge && (
+                        <td onClick={e => e.stopPropagation()}>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={() => openEdit(b)}><Edit2 size={14} /></button>
+                            <button className="btn btn-danger"  style={{ padding: '6px 10px' }} onClick={() => handleDelete(b.id)}><Trash2 size={14} /></button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))
                 }
@@ -162,8 +334,18 @@ export default function Books() {
         </div>
       )}
 
-      {/* Modal */}
-      {modal && (
+      {/* ── Book Detail Modal ── */}
+      {viewBook && (
+        <BookDetailModal
+          book={viewBook}
+          onClose={() => setViewBook(null)}
+          onEdit={openEdit}
+          isIncharge={isIncharge}
+        />
+      )}
+
+      {/* ── Add / Edit Modal (Incharge only) ── */}
+      {modal && isIncharge && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setModal(false)}>
           <div className="modal" style={{ maxHeight: '90vh', overflowY: 'auto', width: '100%', maxWidth: 560, margin: '0 auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>

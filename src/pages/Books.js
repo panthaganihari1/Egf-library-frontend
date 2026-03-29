@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { getBooks, searchBooks, createBook, updateBook, deleteBook } from '../api';
 import toast from 'react-hot-toast';
-import { Plus, Search, Edit2, Trash2, X, BookOpen, User, Tag, Globe, Hash, Building2, Calendar, FileText, Copy, CheckCircle } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, X, BookOpen, Globe, Hash, Building2, Calendar, FileText } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const CATEGORIES = ['Bible Study', 'Devotional', 'Theology', 'Prayer', 'Prophecy', 'Christian Living', 'Youth', 'Children', 'Telugu', 'Hindi', 'Other'];
 const EMPTY = { title: '', author: '', category: '', publisher: '', isbn: '', totalCopies: 1, description: '', language: 'Telugu', publishedYear: '' };
 
-// ─── Hook: detect mobile ───────────────────────────────────────────────────────
 function useIsMobile() {
   const [mobile, setMobile] = useState(window.innerWidth < 640);
   useEffect(() => {
@@ -18,14 +17,14 @@ function useIsMobile() {
   return mobile;
 }
 
-// ─── Role check helper ─────────────────────────────────────────────────────────
-// Reads role from localStorage (set during login). Adjust key/value to match your auth.
 function useIsIncharge() {
   const { user } = useAuth();
+  console.log('[useIsIncharge] user:', user);
+  console.log('[useIsIncharge] role:', user?.role);
+  console.log('[useIsIncharge] result:', user?.role?.toLowerCase() === 'incharge');
   return user?.role?.toLowerCase() === 'incharge';
 }
 
-// ─── Book Detail Modal ─────────────────────────────────────────────────────────
 function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
   if (!book) return null;
 
@@ -60,7 +59,6 @@ function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
         width: '100%', maxWidth: 500, margin: '0 auto',
         padding: 0, borderRadius: 16
       }}>
-        {/* Header banner */}
         <div style={{
           background: 'linear-gradient(135deg, var(--primary, #4f46e5) 0%, var(--primary-dark, #3730a3) 100%)',
           padding: '24px 20px 20px',
@@ -93,7 +91,6 @@ function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
           </h3>
           <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, margin: 0 }}>{book.author}</p>
 
-          {/* Status pill */}
           <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <span style={{
               background: 'rgba(255,255,255,0.2)', color: '#fff',
@@ -110,7 +107,6 @@ function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
           </div>
         </div>
 
-        {/* Copies summary row */}
         <div style={{
           display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
           background: 'var(--surface)', borderBottom: '1px solid var(--border)'
@@ -127,7 +123,6 @@ function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
           ))}
         </div>
 
-        {/* Details */}
         <div style={{ padding: '4px 20px 8px' }}>
           <DetailRow icon={Globe}     label="Language"       value={book.language} />
           <DetailRow icon={Building2} label="Publisher"      value={book.publisher} />
@@ -136,7 +131,6 @@ function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
           <DetailRow icon={FileText}  label="Description"    value={book.description} />
         </div>
 
-        {/* Footer actions */}
         <div style={{
           display: 'flex', gap: 10, padding: '12px 20px 20px',
           justifyContent: isIncharge ? 'flex-end' : 'center'
@@ -155,7 +149,6 @@ function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
   );
 }
 
-// ─── Mobile card ───────────────────────────────────────────────────────────────
 function BookCard({ b, onEdit, onDelete, onView, isIncharge }) {
   return (
     <div
@@ -180,7 +173,6 @@ function BookCard({ b, onEdit, onDelete, onView, isIncharge }) {
             <div>Avail: <strong style={{ color: b.availableCopies > 0 ? 'var(--emerald)' : 'var(--rose)' }}>{b.availableCopies}</strong></div>
           </div>
 
-          {/* Incharge only: Edit + Delete */}
           {isIncharge && (
             <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
               <button className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={() => onEdit(b)}><Edit2 size={14} /></button>
@@ -193,14 +185,20 @@ function BookCard({ b, onEdit, onDelete, onView, isIncharge }) {
   );
 }
 
-// ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function Books() {
-  const [books, setBooks]     = useState([]);
-  const [search, setSearch]   = useState('');
-  const [modal, setModal]     = useState(false);      // add/edit modal
-  const [editing, setEditing] = useState(null);
-  const [form, setForm]       = useState(EMPTY);
-  const [viewBook, setViewBook] = useState(null);     // detail view modal
+  const { user } = useAuth();
+
+  // ── DEBUG: paste what you see in console here ──
+  console.log('[Books] user from context:', user);
+  console.log('[Books] role:', user?.role, '| isIncharge?', user?.role?.toLowerCase() === 'incharge');
+  // ──────────────────────────────────────────────
+
+  const [books, setBooks]       = useState([]);
+  const [search, setSearch]     = useState('');
+  const [modal, setModal]       = useState(false);
+  const [editing, setEditing]   = useState(null);
+  const [form, setForm]         = useState(EMPTY);
+  const [viewBook, setViewBook] = useState(null);
 
   const isMobile   = useIsMobile();
   const isIncharge = useIsIncharge();
@@ -247,7 +245,6 @@ export default function Books() {
           <h2 className="page-title">📚 Books</h2>
           <p className="page-subtitle">{books.length} spiritual books in library</p>
         </div>
-        {/* Add Book button: Incharge only */}
         {isIncharge && (
           <button className="btn btn-primary" onClick={openAdd}>
             <Plus size={16} /> Add Book
@@ -266,7 +263,6 @@ export default function Books() {
         </div>
       </div>
 
-      {/* Mobile: cards — Desktop: table */}
       {isMobile ? (
         <div>
           {books.length === 0
@@ -295,11 +291,7 @@ export default function Books() {
                 {books.length === 0
                   ? <tr><td colSpan={isIncharge ? 8 : 7} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 32 }}>No books found</td></tr>
                   : books.map(b => (
-                    <tr
-                      key={b.id}
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => setViewBook(b)}
-                    >
+                    <tr key={b.id} style={{ cursor: 'pointer' }} onClick={() => setViewBook(b)}>
                       <td><div style={{ fontWeight: 600 }}>{b.title}</div></td>
                       <td style={{ color: 'var(--text-muted)' }}>{b.author}</td>
                       <td><span className="badge badge-blue">{b.category}</span></td>
@@ -315,8 +307,6 @@ export default function Books() {
                           {b.status}
                         </span>
                       </td>
-
-                      {/* Incharge only: action buttons */}
                       {isIncharge && (
                         <td onClick={e => e.stopPropagation()}>
                           <div style={{ display: 'flex', gap: 8 }}>
@@ -334,7 +324,6 @@ export default function Books() {
         </div>
       )}
 
-      {/* ── Book Detail Modal ── */}
       {viewBook && (
         <BookDetailModal
           book={viewBook}
@@ -344,7 +333,6 @@ export default function Books() {
         />
       )}
 
-      {/* ── Add / Edit Modal (Incharge only) ── */}
       {modal && isIncharge && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setModal(false)}>
           <div className="modal" style={{ maxHeight: '90vh', overflowY: 'auto', width: '100%', maxWidth: 560, margin: '0 auto' }}>

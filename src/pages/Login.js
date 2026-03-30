@@ -62,7 +62,7 @@ export default function Login() {
           }}>
             EGF Book Library
           </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Ammerpet — Literature Incharge Login</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Ameerpet — Literature Incharge Login</p>
         </div>
 
         {/* Card */}
@@ -118,7 +118,7 @@ export default function Login() {
         </div>
 
         <p style={{ textAlign: 'center', marginTop: 24, fontSize: 12, color: 'var(--text-muted)' }}>
-          🙏 Serving the Word of God — Ammerpet EGF
+          🙏 Serving the Word of God — Ameerpet EGF
         </p>
       </div>
     </div>

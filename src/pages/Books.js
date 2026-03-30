@@ -43,29 +43,33 @@ function buildShareText(book) {
   return lines.filter(Boolean).join('\n');
 }
 
+// Desktop Chrome supports navigator.share but silently does nothing for plain text.
+// Detect mobile: only use Web Share API on touch devices / small screens.
+function isMobileDevice() {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints > 1 && window.innerWidth < 1024);
+}
+
 async function shareBook(book) {
   const text = buildShareText(book);
 
-  // Try Web Share API first (mobile browsers, desktop Chrome 89+)
-  if (navigator.share) {
+  // Use native share sheet ONLY on real mobile devices
+  if (isMobileDevice() && navigator.share) {
     try {
-      await navigator.share({
-        title: book.title,
-        text,
-      });
-      return; // success — no toast needed
+      await navigator.share({ title: book.title, text });
+      return 'shared'; // native share succeeded
     } catch (err) {
-      // User cancelled (AbortError) — do nothing
-      if (err.name === 'AbortError') return;
-      // Other error — fall through to clipboard
+      if (err.name === 'AbortError') return 'cancelled'; // user dismissed
+      // fall through to clipboard on other errors
     }
   }
 
-  // Fallback: copy to clipboard
+  // Desktop (or mobile fallback): copy to clipboard
   try {
     await navigator.clipboard.writeText(text);
-    return 'copied'; // signal to show toast
+    return 'copied';
   } catch {
+    // Last resort: prompt with a selectable text box
     return 'error';
   }
 }
@@ -82,11 +86,13 @@ function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
     setSharing(false);
 
     if (result === 'copied') {
-      toast.success('Book details copied to clipboard!');
+      toast.success('📋 Book details copied to clipboard!');
+    } else if (result === 'shared') {
+      toast.success('📤 Shared successfully!');
     } else if (result === 'error') {
-      toast.error('Could not share. Please try again.');
+      toast.error('Could not copy. Please try again.');
     }
-    // If undefined (native share succeeded or was cancelled) — no toast
+    // 'cancelled' → user dismissed share sheet, do nothing
   };
 
   const statusColor =

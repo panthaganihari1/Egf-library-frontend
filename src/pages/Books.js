@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { getBooks, searchBooks, createBook, updateBook, deleteBook } from '../api';
 import toast from 'react-hot-toast';
-import { Plus, Search, Edit2, Trash2, X, BookOpen, Globe, Hash, Building2, Calendar, FileText } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, X, BookOpen, Globe, Hash, Building2, Calendar, FileText, Share2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const CATEGORIES = ['Bible Study', 'Devotional', 'Theology', 'Prayer', 'Prophecy', 'Christian Living', 'Youth', 'Children', 'Telugu', 'Hindi', 'Other'];
@@ -19,14 +19,75 @@ function useIsMobile() {
 
 function useIsIncharge() {
   const { user } = useAuth();
-  console.log('[useIsIncharge] user:', user);
-  console.log('[useIsIncharge] role:', user?.role);
-  console.log('[useIsIncharge] result:', user?.role?.toLowerCase() === 'incharge');
   return user?.role?.toLowerCase() === 'incharge';
 }
 
+// ─── Share Helper ────────────────────────────────────────────────────────────
+function buildShareText(book) {
+  const available = book.availableCopies ?? 0;
+  const total     = book.totalCopies    ?? 0;
+  const issued    = total - available;
+
+  const lines = [
+    `📖 *${book.title}*`,
+    `✍️ Author: ${book.author}`,
+    book.category   ? `🏷️ Category: ${book.category}`     : null,
+    book.language   ? `🌐 Language: ${book.language}`     : null,
+    book.publisher  ? `🏢 Publisher: ${book.publisher}`   : null,
+    book.isbn       ? `🔢 ISBN: ${book.isbn}`             : null,
+    `📦 Copies: ${total} total | ${available} available | ${issued} issued`,
+    book.description ? `\n📝 ${book.description}` : null,
+    `\n— EGF Book Library, Ammerpet`,
+  ];
+
+  return lines.filter(Boolean).join('\n');
+}
+
+async function shareBook(book) {
+  const text = buildShareText(book);
+
+  // Try Web Share API first (mobile browsers, desktop Chrome 89+)
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: book.title,
+        text,
+      });
+      return; // success — no toast needed
+    } catch (err) {
+      // User cancelled (AbortError) — do nothing
+      if (err.name === 'AbortError') return;
+      // Other error — fall through to clipboard
+    }
+  }
+
+  // Fallback: copy to clipboard
+  try {
+    await navigator.clipboard.writeText(text);
+    return 'copied'; // signal to show toast
+  } catch {
+    return 'error';
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
   if (!book) return null;
+
+  const [sharing, setSharing] = useState(false);
+
+  const handleShare = async () => {
+    setSharing(true);
+    const result = await shareBook(book);
+    setSharing(false);
+
+    if (result === 'copied') {
+      toast.success('Book details copied to clipboard!');
+    } else if (result === 'error') {
+      toast.error('Could not share. Please try again.');
+    }
+    // If undefined (native share succeeded or was cancelled) — no toast
+  };
 
   const statusColor =
     book.status === 'AVAILABLE' ? 'var(--emerald)' :
@@ -59,6 +120,7 @@ function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
         width: '100%', maxWidth: 500, margin: '0 auto',
         padding: 0, borderRadius: 16
       }}>
+        {/* Header */}
         <div style={{
           background: 'linear-gradient(135deg, var(--primary, #4f46e5) 0%, var(--primary-dark, #3730a3) 100%)',
           padding: '24px 20px 20px',
@@ -107,6 +169,7 @@ function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
           </div>
         </div>
 
+        {/* Stats */}
         <div style={{
           display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
           background: 'var(--surface)', borderBottom: '1px solid var(--border)'
@@ -123,6 +186,7 @@ function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
           ))}
         </div>
 
+        {/* Details */}
         <div style={{ padding: '4px 20px 8px' }}>
           <DetailRow icon={Globe}     label="Language"       value={book.language} />
           <DetailRow icon={Building2} label="Publisher"      value={book.publisher} />
@@ -131,13 +195,26 @@ function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
           <DetailRow icon={FileText}  label="Description"    value={book.description} />
         </div>
 
+        {/* Footer actions */}
         <div style={{
           display: 'flex', gap: 10, padding: '12px 20px 20px',
-          justifyContent: isIncharge ? 'flex-end' : 'center'
+          justifyContent: 'flex-end', flexWrap: 'wrap',
         }}>
-          <button className="btn btn-outline" onClick={onClose} style={{ flex: isIncharge ? 'unset' : 1 }}>
+          <button className="btn btn-outline" onClick={onClose}>
             Close
           </button>
+
+          {/* ── Share button — visible to ALL users ── */}
+          <button
+            className="btn btn-outline"
+            onClick={handleShare}
+            disabled={sharing}
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <Share2 size={14} />
+            {sharing ? 'Sharing…' : 'Share'}
+          </button>
+
           {isIncharge && (
             <button className="btn btn-primary" onClick={() => { onClose(); onEdit(book); }}>
               <Edit2 size={14} /> Edit Book
@@ -187,11 +264,6 @@ function BookCard({ b, onEdit, onDelete, onView, isIncharge }) {
 
 export default function Books() {
   const { user } = useAuth();
-
-  // ── DEBUG: paste what you see in console here ──
-  console.log('[Books] user from context:', user);
-  console.log('[Books] role:', user?.role, '| isIncharge?', user?.role?.toLowerCase() === 'incharge');
-  // ──────────────────────────────────────────────
 
   const [books, setBooks]       = useState([]);
   const [search, setSearch]     = useState('');

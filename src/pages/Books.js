@@ -5,7 +5,12 @@ import { Plus, Search, Edit2, Trash2, X, BookOpen, Globe, Hash, Building2, Calen
 import { useAuth } from '../context/AuthContext';
 
 const CATEGORIES = ['Bible Study', 'Devotional', 'Theology', 'Prayer', 'Prophecy', 'Christian Living', 'Youth', 'Children', 'Telugu', 'Hindi', 'Other'];
-const EMPTY = { title: '', author: '', category: '', publisher: '', isbn: '', totalCopies: 1, description: '', language: 'Telugu', publishedYear: '' };
+const EMPTY = {
+  title: '', author: '', category: '', publisher: '', isbn: '',
+  totalCopies: 1, description: '', language: 'Telugu',
+  publishedYear: '',
+  file: null
+};
 
 function useIsMobile() {
   const [mobile, setMobile] = useState(window.innerWidth < 640);
@@ -22,29 +27,25 @@ function useIsIncharge() {
   return user?.role?.toLowerCase() === 'incharge';
 }
 
-// ─── Share Helper ────────────────────────────────────────────────────────────
+// ─── Share Helper ─────────────────────────────────────────────────────────────
 function buildShareText(book) {
   const available = book.availableCopies ?? 0;
   const total     = book.totalCopies    ?? 0;
   const issued    = total - available;
-
   const lines = [
     `📖 *${book.title}*`,
     `✍️ Author: ${book.author}`,
-    book.category   ? `🏷️ Category: ${book.category}`     : null,
-    book.language   ? `🌐 Language: ${book.language}`     : null,
-    book.publisher  ? `🏢 Publisher: ${book.publisher}`   : null,
-    book.isbn       ? `🔢 ISBN: ${book.isbn}`             : null,
+    book.category    ? `🏷️ Category: ${book.category}`   : null,
+    book.language    ? `🌐 Language: ${book.language}`   : null,
+    book.publisher   ? `🏢 Publisher: ${book.publisher}` : null,
+    book.isbn        ? `🔢 ISBN: ${book.isbn}`           : null,
     `📦 Copies: ${total} total | ${available} available | ${issued} issued`,
-    book.description ? `\n📝 ${book.description}` : null,
-    `\n— EGF Book Library, Ammerpet`,
+    book.description ? `\n📝 ${book.description}`        : null,
+    `\n— EGF Book Library, Ameerpet`,
   ];
-
   return lines.filter(Boolean).join('\n');
 }
 
-// Desktop Chrome supports navigator.share but silently does nothing for plain text.
-// Detect mobile: only use Web Share API on touch devices / small screens.
 function isMobileDevice() {
   return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
     (navigator.maxTouchPoints > 1 && window.innerWidth < 1024);
@@ -52,47 +53,34 @@ function isMobileDevice() {
 
 async function shareBook(book) {
   const text = buildShareText(book);
-
-  // Use native share sheet ONLY on real mobile devices
   if (isMobileDevice() && navigator.share) {
     try {
       await navigator.share({ title: book.title, text });
-      return 'shared'; // native share succeeded
+      return 'shared';
     } catch (err) {
-      if (err.name === 'AbortError') return 'cancelled'; // user dismissed
-      // fall through to clipboard on other errors
+      if (err.name === 'AbortError') return 'cancelled';
     }
   }
-
-  // Desktop (or mobile fallback): copy to clipboard
   try {
     await navigator.clipboard.writeText(text);
     return 'copied';
   } catch {
-    // Last resort: prompt with a selectable text box
     return 'error';
   }
 }
-// ─────────────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────────
 
 function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
   if (!book) return null;
-
   const [sharing, setSharing] = useState(false);
 
   const handleShare = async () => {
     setSharing(true);
     const result = await shareBook(book);
     setSharing(false);
-
-    if (result === 'copied') {
-      toast.success('📋 Book details copied to clipboard!');
-    } else if (result === 'shared') {
-      toast.success('📤 Shared successfully!');
-    } else if (result === 'error') {
-      toast.error('Could not copy. Please try again.');
-    }
-    // 'cancelled' → user dismissed share sheet, do nothing
+    if (result === 'copied')    toast.success('📋 Book details copied to clipboard!');
+    else if (result === 'shared') toast.success('📤 Shared successfully!');
+    else if (result === 'error')  toast.error('Could not copy. Please try again.');
   };
 
   const statusColor =
@@ -145,13 +133,22 @@ function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
             <X size={16} />
           </button>
 
+          {/* 🔥 Cover image in modal header */}
           <div style={{
-            width: 52, height: 52, borderRadius: 12,
-            background: 'rgba(255,255,255,0.2)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            marginBottom: 12
+            width: 64, height: 86, borderRadius: 8, overflow: 'hidden',
+            marginBottom: 12, border: '2px solid rgba(255,255,255,0.3)',
+            background: 'rgba(255,255,255,0.15)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}>
-            <BookOpen size={26} color="#fff" />
+            {book.coverImageUrl ? (
+              <img
+                src={book.coverImageUrl}
+                alt={book.title}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : (
+              <BookOpen size={26} color="#fff" />
+            )}
           </div>
 
           <h3 style={{ color: '#fff', fontSize: 18, fontWeight: 700, marginBottom: 4, paddingRight: 40 }}>
@@ -182,8 +179,8 @@ function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
         }}>
           {[
             { label: 'Total Copies', value: book.totalCopies, color: 'var(--text)' },
-            { label: 'Available', value: book.availableCopies, color: book.availableCopies > 0 ? 'var(--emerald)' : 'var(--rose)' },
-            { label: 'Issued', value: (book.totalCopies || 0) - (book.availableCopies || 0), color: 'var(--orange, #f97316)' },
+            { label: 'Available',    value: book.availableCopies, color: book.availableCopies > 0 ? 'var(--emerald)' : 'var(--rose)' },
+            { label: 'Issued',       value: (book.totalCopies || 0) - (book.availableCopies || 0), color: 'var(--orange, #f97316)' },
           ].map(({ label, value, color }) => (
             <div key={label} style={{ textAlign: 'center', padding: '14px 8px' }}>
               <div style={{ fontSize: 22, fontWeight: 700, color }}>{value ?? '—'}</div>
@@ -206,11 +203,7 @@ function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
           display: 'flex', gap: 10, padding: '12px 20px 20px',
           justifyContent: 'flex-end', flexWrap: 'wrap',
         }}>
-          <button className="btn btn-outline" onClick={onClose}>
-            Close
-          </button>
-
-          {/* ── Share button — visible to ALL users ── */}
+          <button className="btn btn-outline" onClick={onClose}>Close</button>
           <button
             className="btn btn-outline"
             onClick={handleShare}
@@ -220,7 +213,6 @@ function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
             <Share2 size={14} />
             {sharing ? 'Sharing…' : 'Share'}
           </button>
-
           {isIncharge && (
             <button className="btn btn-primary" onClick={() => { onClose(); onEdit(book); }}>
               <Edit2 size={14} /> Edit Book
@@ -232,6 +224,7 @@ function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
   );
 }
 
+// 🔥 BookCard with cover image
 function BookCard({ b, onEdit, onDelete, onView, isIncharge }) {
   return (
     <div
@@ -240,6 +233,25 @@ function BookCard({ b, onEdit, onDelete, onView, isIncharge }) {
       onClick={() => onView(b)}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+
+        {/* Cover Image */}
+        <div style={{
+          width: 52, height: 70, borderRadius: 6, overflow: 'hidden',
+          flexShrink: 0, background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          {b.coverImageUrl ? (
+            <img
+              src={b.coverImageUrl}
+              alt={b.title}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : (
+            <BookOpen size={22} color="var(--text-muted)" />
+          )}
+        </div>
+
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</div>
           <div style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 8 }}>{b.author}</div>
@@ -255,7 +267,6 @@ function BookCard({ b, onEdit, onDelete, onView, isIncharge }) {
             <div>Total: <strong style={{ color: 'var(--text)' }}>{b.totalCopies}</strong></div>
             <div>Avail: <strong style={{ color: b.availableCopies > 0 ? 'var(--emerald)' : 'var(--rose)' }}>{b.availableCopies}</strong></div>
           </div>
-
           {isIncharge && (
             <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
               <button className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={() => onEdit(b)}><Edit2 size={14} /></button>
@@ -263,6 +274,7 @@ function BookCard({ b, onEdit, onDelete, onView, isIncharge }) {
             </div>
           )}
         </div>
+
       </div>
     </div>
   );
@@ -297,16 +309,18 @@ export default function Books() {
 
   const handleSave = async () => {
     try {
+      const { file, ...bookData } = form;
       if (editing) {
-        await updateBook(editing.id, form);
+        await updateBook(editing.id, bookData, file);
         toast.success('Book updated!');
       } else {
-        await createBook(form);
+        await createBook(bookData, file);
         toast.success('Book added!');
       }
-      setModal(false); load();
+      setModal(false);
+      load();
     } catch (e) {
-      toast.error(e.response?.data?.error || 'Error saving book');
+      toast.error(e.response?.data || 'Error saving book');
     }
   };
 
@@ -341,6 +355,7 @@ export default function Books() {
         </div>
       </div>
 
+      {/* ── Mobile List ── */}
       {isMobile ? (
         <div>
           {books.length === 0
@@ -357,19 +372,38 @@ export default function Books() {
           }
         </div>
       ) : (
+        /* ── Desktop Table ── */
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ minWidth: 700 }}>
+            <table style={{ minWidth: 750 }}>
               <thead><tr>
+                <th>Cover</th>
                 <th>Title</th><th>Author</th><th>Category</th><th>Language</th>
                 <th>Copies</th><th>Available</th><th>Status</th>
                 {isIncharge && <th>Actions</th>}
               </tr></thead>
               <tbody>
                 {books.length === 0
-                  ? <tr><td colSpan={isIncharge ? 8 : 7} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 32 }}>No books found</td></tr>
+                  ? <tr><td colSpan={isIncharge ? 9 : 8} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 32 }}>No books found</td></tr>
                   : books.map(b => (
                     <tr key={b.id} style={{ cursor: 'pointer' }} onClick={() => setViewBook(b)}>
+
+                      {/* 🔥 Cover image in table */}
+                      <td>
+                        <div style={{
+                          width: 36, height: 48, borderRadius: 4, overflow: 'hidden',
+                          background: 'var(--surface)', border: '1px solid var(--border)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}>
+                          {b.coverImageUrl ? (
+                            <img src={b.coverImageUrl} alt={b.title}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            <BookOpen size={14} color="var(--text-muted)" />
+                          )}
+                        </div>
+                      </td>
+
                       <td><div style={{ fontWeight: 600 }}>{b.title}</div></td>
                       <td style={{ color: 'var(--text-muted)' }}>{b.author}</td>
                       <td><span className="badge badge-blue">{b.category}</span></td>
@@ -402,6 +436,7 @@ export default function Books() {
         </div>
       )}
 
+      {/* ── Book Detail Modal ── */}
       {viewBook && (
         <BookDetailModal
           book={viewBook}
@@ -411,6 +446,7 @@ export default function Books() {
         />
       )}
 
+      {/* ── Add / Edit Modal ── */}
       {modal && isIncharge && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setModal(false)}>
           <div className="modal" style={{ maxHeight: '90vh', overflowY: 'auto', width: '100%', maxWidth: 560, margin: '0 auto' }}>
@@ -418,6 +454,7 @@ export default function Books() {
               <h3 style={{ fontSize: 17 }}>{editing ? 'Edit Book' : '📚 Add New Book'}</h3>
               <button className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={() => setModal(false)}><X size={16} /></button>
             </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '0 16px' }}>
               <div className="form-group"><label>Title *</label><input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Book title" /></div>
               <div className="form-group"><label>Author *</label><input value={form.author} onChange={e => setForm({ ...form, author: e.target.value })} placeholder="Author name" /></div>
@@ -436,8 +473,45 @@ export default function Books() {
               <div className="form-group"><label>ISBN</label><input value={form.isbn} onChange={e => setForm({ ...form, isbn: e.target.value })} placeholder="ISBN number" /></div>
               <div className="form-group"><label>Total Copies</label><input type="number" min={1} value={form.totalCopies} onChange={e => setForm({ ...form, totalCopies: parseInt(e.target.value) || 1 })} /></div>
               <div className="form-group"><label>Published Year</label><input type="number" value={form.publishedYear} onChange={e => setForm({ ...form, publishedYear: e.target.value })} placeholder="e.g. 2020" /></div>
+
+              {/* 🔥 Cover image upload + preview */}
+              <div className="form-group" style={{ gridColumn: isMobile ? '1' : '1 / -1' }}>
+                <label>Book Cover Image</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{
+                    width: 52, height: 70, borderRadius: 6, overflow: 'hidden',
+                    border: '1px solid var(--border)', background: 'var(--surface)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                  }}>
+                    {form.file ? (
+                      <img
+                        src={URL.createObjectURL(form.file)}
+                        alt="preview"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : form.coverImageUrl ? (
+                      <img
+                        src={form.coverImageUrl}
+                        alt="cover"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <BookOpen size={20} color="var(--text-muted)" />
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={e => setForm({ ...form, file: e.target.files[0] })}
+                  />
+                </div>
+              </div>
             </div>
-            <div className="form-group"><label>Description</label><textarea rows={3} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Brief description..." style={{ resize: 'vertical' }} /></div>
+
+            <div className="form-group"><label>Description</label>
+              <textarea rows={3} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Brief description..." style={{ resize: 'vertical' }} />
+            </div>
+
             <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
               <button className="btn btn-outline" onClick={() => setModal(false)}>Cancel</button>
               <button className="btn btn-primary" onClick={handleSave}>{editing ? 'Update' : 'Add Book'}</button>

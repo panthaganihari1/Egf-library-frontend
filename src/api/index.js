@@ -20,6 +20,35 @@ API.interceptors.response.use(
     return Promise.reject(err);
   }
 );
+export const createBook = (data, file) => {
+  const formData = new FormData();
+
+  // Send book data as JSON string under "book" key
+  const bookData = { ...data };
+  delete bookData.file;
+  formData.append("book", JSON.stringify(bookData));
+
+  if (file) formData.append("file", file);
+
+  return API.post('/books', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+};
+
+export const updateBook = (id, data, file) => {
+  const formData = new FormData();
+
+  // Send book data as JSON string under "book" key
+  const bookData = { ...data };
+  delete bookData.file;
+  formData.append("book", JSON.stringify(bookData));
+
+  if (file) formData.append("file", file);
+
+  return API.put(`/books/${id}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+};
 
 // Auth
 export const login = (data) => API.post('/auth/login', data);
@@ -29,8 +58,6 @@ export const register = (data) => API.post('/auth/register', data);
 export const getBooks = () => API.get('/books');
 export const getBook = (id) => API.get(`/books/${id}`);
 export const searchBooks = (query) => API.get(`/books/search?query=${query}`);
-export const createBook = (data) => API.post('/books', data);
-export const updateBook = (id, data) => API.put(`/books/${id}`, data);
 export const deleteBook = (id) => API.delete(`/books/${id}`);
 
 // Members

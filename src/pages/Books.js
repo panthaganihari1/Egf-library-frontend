@@ -358,11 +358,11 @@ export default function Books() {
           <p className="page-subtitle">{books.length} spiritual books in library</p>
         </div>
         {/* Add Book button — incharge only */}
-        {isIncharge && (
+        {
           <button className="btn btn-primary" onClick={openAdd}>
             <Plus size={16} /> Add Book
           </button>
-        )}
+        }
       </div>
 
       <div style={{ marginBottom: 16 }}>

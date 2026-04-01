@@ -477,7 +477,7 @@ export default function Books() {
       )}
 
       {/* ── Add / Edit Modal — incharge only ── */}
-      {modal && isIncharge && (
+      {modal (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setModal(false)}>
           <div className="modal" style={{ maxHeight: '90vh', overflowY: 'auto', width: '100%', maxWidth: 560, margin: '0 auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>

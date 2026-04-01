@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { getBooks, searchBooks, createBook, updateBook, deleteBook } from '../api';
 import toast from 'react-hot-toast';
-import { Plus, Search, Edit2, Trash2, X, BookOpen, Globe, Hash, Building2, Calendar, FileText, Share2 } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, X, BookOpen, Globe, Hash, Building2, Calendar, FileText, Share2, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const CATEGORIES = ['Bible Study', 'Devotional', 'Theology', 'Prayer', 'Prophecy', 'Christian Living', 'Youth', 'Children', 'Telugu', 'Hindi', 'Other'];
 const EMPTY = {
   title: '', author: '', category: '', publisher: '', isbn: '',
   totalCopies: 1, description: '', language: 'Telugu',
-  publishedYear: '',
+  publishedYear: '', owner: '',
   file: null
 };
 
@@ -35,12 +35,13 @@ function buildShareText(book) {
   const lines = [
     `📖 *${book.title}*`,
     `✍️ Author: ${book.author}`,
-    book.category    ? `🏷️ Category: ${book.category}`   : null,
-    book.language    ? `🌐 Language: ${book.language}`   : null,
-    book.publisher   ? `🏢 Publisher: ${book.publisher}` : null,
-    book.isbn        ? `🔢 ISBN: ${book.isbn}`           : null,
+    book.owner       ? `👤 Owner: ${book.owner}`           : null,
+    book.category    ? `🏷️ Category: ${book.category}`     : null,
+    book.language    ? `🌐 Language: ${book.language}`     : null,
+    book.publisher   ? `🏢 Publisher: ${book.publisher}`   : null,
+    book.isbn        ? `🔢 ISBN: ${book.isbn}`             : null,
     `📦 Copies: ${total} total | ${available} available | ${issued} issued`,
-    book.description ? `\n📝 ${book.description}`        : null,
+    book.description ? `\n📝 ${book.description}`          : null,
     `\n— EGF Book Library, Ameerpet`,
   ];
   return lines.filter(Boolean).join('\n');
@@ -78,7 +79,7 @@ function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
     setSharing(true);
     const result = await shareBook(book);
     setSharing(false);
-    if (result === 'copied')    toast.success('📋 Book details copied to clipboard!');
+    if (result === 'copied')      toast.success('📋 Book details copied to clipboard!');
     else if (result === 'shared') toast.success('📤 Shared successfully!');
     else if (result === 'error')  toast.error('Could not copy. Please try again.');
   };
@@ -133,7 +134,7 @@ function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
             <X size={16} />
           </button>
 
-          {/* 🔥 Cover image in modal header */}
+          {/* Cover image in modal header */}
           <div style={{
             width: 64, height: 86, borderRadius: 8, overflow: 'hidden',
             marginBottom: 12, border: '2px solid rgba(255,255,255,0.3)',
@@ -155,6 +156,16 @@ function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
             {book.title}
           </h3>
           <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, margin: 0 }}>{book.author}</p>
+
+          {/* Owner badge in header */}
+          {book.owner && (
+            <p style={{
+              color: 'rgba(255,255,255,0.7)', fontSize: 12, margin: '4px 0 0',
+              display: 'flex', alignItems: 'center', gap: 4
+            }}>
+              <User size={11} /> Owner: {book.owner}
+            </p>
+          )}
 
           <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <span style={{
@@ -178,7 +189,7 @@ function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
           background: 'var(--surface)', borderBottom: '1px solid var(--border)'
         }}>
           {[
-            { label: 'Total Copies', value: book.totalCopies, color: 'var(--text)' },
+            { label: 'Total Copies', value: book.totalCopies,     color: 'var(--text)' },
             { label: 'Available',    value: book.availableCopies, color: book.availableCopies > 0 ? 'var(--emerald)' : 'var(--rose)' },
             { label: 'Issued',       value: (book.totalCopies || 0) - (book.availableCopies || 0), color: 'var(--orange, #f97316)' },
           ].map(({ label, value, color }) => (
@@ -191,6 +202,7 @@ function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
 
         {/* Details */}
         <div style={{ padding: '4px 20px 8px' }}>
+          <DetailRow icon={User}      label="Owner"          value={book.owner} />
           <DetailRow icon={Globe}     label="Language"       value={book.language} />
           <DetailRow icon={Building2} label="Publisher"      value={book.publisher} />
           <DetailRow icon={Hash}      label="ISBN"           value={book.isbn} />
@@ -213,6 +225,7 @@ function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
             <Share2 size={14} />
             {sharing ? 'Sharing…' : 'Share'}
           </button>
+          {/* Edit only for incharge */}
           {isIncharge && (
             <button className="btn btn-primary" onClick={() => { onClose(); onEdit(book); }}>
               <Edit2 size={14} /> Edit Book
@@ -224,7 +237,7 @@ function BookDetailModal({ book, onClose, onEdit, isIncharge }) {
   );
 }
 
-// 🔥 BookCard with cover image
+// BookCard — visible to all, edit/delete only for incharge
 function BookCard({ b, onEdit, onDelete, onView, isIncharge }) {
   return (
     <div
@@ -254,7 +267,13 @@ function BookCard({ b, onEdit, onDelete, onView, isIncharge }) {
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</div>
-          <div style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 8 }}>{b.author}</div>
+          <div style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 4 }}>{b.author}</div>
+          {/* Owner line */}
+          {b.owner && (
+            <div style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <User size={11} color="var(--text-muted)" /> {b.owner}
+            </div>
+          )}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
             <span className="badge badge-blue">{b.category}</span>
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{b.language}</span>
@@ -267,6 +286,7 @@ function BookCard({ b, onEdit, onDelete, onView, isIncharge }) {
             <div>Total: <strong style={{ color: 'var(--text)' }}>{b.totalCopies}</strong></div>
             <div>Avail: <strong style={{ color: b.availableCopies > 0 ? 'var(--emerald)' : 'var(--rose)' }}>{b.availableCopies}</strong></div>
           </div>
+          {/* Edit/Delete only for incharge */}
           {isIncharge && (
             <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
               <button className="btn btn-outline" style={{ padding: '6px 10px' }} onClick={() => onEdit(b)}><Edit2 size={14} /></button>
@@ -337,6 +357,7 @@ export default function Books() {
           <h2 className="page-title">📚 Books</h2>
           <p className="page-subtitle">{books.length} spiritual books in library</p>
         </div>
+        {/* Add Book button — incharge only */}
         {isIncharge && (
           <button className="btn btn-primary" onClick={openAdd}>
             <Plus size={16} /> Add Book
@@ -375,20 +396,20 @@ export default function Books() {
         /* ── Desktop Table ── */
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ minWidth: 750 }}>
+            <table style={{ minWidth: 800 }}>
               <thead><tr>
                 <th>Cover</th>
-                <th>Title</th><th>Author</th><th>Category</th><th>Language</th>
+                <th>Title</th><th>Author</th><th>Owner</th><th>Category</th><th>Language</th>
                 <th>Copies</th><th>Available</th><th>Status</th>
                 {isIncharge && <th>Actions</th>}
               </tr></thead>
               <tbody>
                 {books.length === 0
-                  ? <tr><td colSpan={isIncharge ? 9 : 8} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 32 }}>No books found</td></tr>
+                  ? <tr><td colSpan={isIncharge ? 10 : 9} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 32 }}>No books found</td></tr>
                   : books.map(b => (
                     <tr key={b.id} style={{ cursor: 'pointer' }} onClick={() => setViewBook(b)}>
 
-                      {/* 🔥 Cover image in table */}
+                      {/* Cover image in table */}
                       <td>
                         <div style={{
                           width: 36, height: 48, borderRadius: 4, overflow: 'hidden',
@@ -406,6 +427,14 @@ export default function Books() {
 
                       <td><div style={{ fontWeight: 600 }}>{b.title}</div></td>
                       <td style={{ color: 'var(--text-muted)' }}>{b.author}</td>
+                      {/* Owner column */}
+                      <td>
+                        {b.owner ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-muted)', fontSize: 13 }}>
+                            <User size={12} color="var(--text-muted)" /> {b.owner}
+                          </div>
+                        ) : <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>}
+                      </td>
                       <td><span className="badge badge-blue">{b.category}</span></td>
                       <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{b.language}</td>
                       <td style={{ textAlign: 'center' }}>{b.totalCopies}</td>
@@ -419,6 +448,7 @@ export default function Books() {
                           {b.status}
                         </span>
                       </td>
+                      {/* Edit/Delete — incharge only */}
                       {isIncharge && (
                         <td onClick={e => e.stopPropagation()}>
                           <div style={{ display: 'flex', gap: 8 }}>
@@ -446,7 +476,7 @@ export default function Books() {
         />
       )}
 
-      {/* ── Add / Edit Modal ── */}
+      {/* ── Add / Edit Modal — incharge only ── */}
       {modal && isIncharge && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setModal(false)}>
           <div className="modal" style={{ maxHeight: '90vh', overflowY: 'auto', width: '100%', maxWidth: 560, margin: '0 auto' }}>
@@ -458,6 +488,11 @@ export default function Books() {
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '0 16px' }}>
               <div className="form-group"><label>Title *</label><input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Book title" /></div>
               <div className="form-group"><label>Author *</label><input value={form.author} onChange={e => setForm({ ...form, author: e.target.value })} placeholder="Author name" /></div>
+              {/* Owner field */}
+              <div className="form-group" style={{ gridColumn: isMobile ? '1' : '1 / -1' }}>
+                <label>Owner <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 12 }}>(Person who donated / owns this book)</span></label>
+                <input value={form.owner} onChange={e => setForm({ ...form, owner: e.target.value })} placeholder="e.g. Harikrishna" />
+              </div>
               <div className="form-group"><label>Category</label>
                 <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
                   <option value="">Select category</option>
@@ -474,7 +509,7 @@ export default function Books() {
               <div className="form-group"><label>Total Copies</label><input type="number" min={1} value={form.totalCopies} onChange={e => setForm({ ...form, totalCopies: parseInt(e.target.value) || 1 })} /></div>
               <div className="form-group"><label>Published Year</label><input type="number" value={form.publishedYear} onChange={e => setForm({ ...form, publishedYear: e.target.value })} placeholder="e.g. 2020" /></div>
 
-              {/* 🔥 Cover image upload + preview */}
+              {/* Cover image upload + preview */}
               <div className="form-group" style={{ gridColumn: isMobile ? '1' : '1 / -1' }}>
                 <label>Book Cover Image</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
